@@ -1,0 +1,15 @@
+# Label-review config. mode picks WHO corrects the teacher's draft labels.
+#   claude_read : Claude opens review composites with the Read tool and writes labels
+#                 (independent of the teacher -> non-circular; dev-time only, no runtime API)
+#   vision_mcp  : batch the same task through a vision MCP for higher throughput
+#   human       : emit a Label Studio/CVAT task for the lowest-confidence frames (minimize)
+mode: claude_read
+
+worklist:
+  max_frames: 400
+  rank_by: [teacher_student_disagreement, low_conf, dense_pile, impossible_count]
+  composite: side_by_side      # image | draft-overlay, written to frames/review/
+
+active_learning:
+  rounds: 2
+  mine_lowest_conf: 150        # per round, surfaced by --mine after each training pass

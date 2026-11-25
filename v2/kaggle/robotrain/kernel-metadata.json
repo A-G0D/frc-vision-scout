@@ -1,0 +1,11 @@
+{
+  "id": "abhaygodavarthy/frc-robotrain",
+  "title": "frc-robotrain",
+  "code_file": "robotrain.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["abhaygodavarthy/frc-footage"]
+}

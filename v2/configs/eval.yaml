@@ -1,0 +1,8 @@
+# Release-gate config. Points the metrics at the HELD-OUT, HUMAN-labeled test match and
+# the target-hardware benchmark report. Thresholds live in eval/gates.py:GATES.
+test_match: test                       # the split tag held out from training
+human_labels_dir: data/labels/test     # human/Claude-reviewed ground truth (NOT teacher)
+predictions_dir: data/preds/test       # student predictions on the test match
+overlay_truth: data/overlay/test.json  # per-frame overlay fuel counts (dense truth)
+tba_truth: data/tba/2026ctwat.json     # all comp levels incl playoffs
+fps_bench_report: data/bench/laptop.json  # from `make bench` on the Intel laptop

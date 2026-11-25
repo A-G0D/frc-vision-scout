@@ -1,0 +1,26 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Event detection + attribution params.
+# CRITICAL: all timing is expressed in SECONDS and converted to frames using the
+# capture's REAL fps at runtime. v1 hardcoded fps=30 against 60fps footage and was
+# 2x wrong on every window. Never put frame counts here — only seconds + meters.
+# ─────────────────────────────────────────────────────────────────────────────
+
+pickup:
+  radius_m: 0.5              # ball must vanish within this of a robot to count as intake
+  min_ball_age_s: 0.15      # track stability before a disappearance is "real"
+  dedup_per_robot_s: 1.5    # min cycle time between two intakes by one robot
+  dedup_per_ball_s: 2.0
+
+shot:
+  min_speed_mps: 2.0        # field-frame speed (post-homography), not px/frame
+  min_travel_m: 1.0
+  directness: 0.55          # net/path displacement ratio
+  lookahead_s: 4.0          # project trajectory forward to test HUB intersection
+
+score_attribution:
+  window_s: 3.0             # correlate flight->HUB-entry with overlay score delta
+  lookahead_s: 0.5          # overlay may lag the physical score by ~1 tick
+  # When multiple robots qualify in one window, DO NOT fake an integer split.
+  # Emit per-robot probability + confidence; report alliance-pool remainder.
+  policy: probabilistic
+  min_confidence: 0.0       # keep all, annotate confidence; filter downstream

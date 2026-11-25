@@ -1,0 +1,25 @@
+{
+ "frames": 200,
+ "fps": 87.8,
+ "all": {
+  "n": 200,
+  "score_exact": 1.0,
+  "timer_exact": 0.955
+ },
+ "clean": {
+  "n": 100,
+  "score_exact": 1.0,
+  "timer_exact": 1.0
+ },
+ "degraded": {
+  "n": 100,
+  "score_exact": 1.0,
+  "timer_exact": 0.91
+ },
+ "held_out_font": {
+  "n": 66,
+  "score_exact": 1.0,
+  "timer_exact": 0.9697
+ },
+ "machine": "macOS-27.0.1-arm64-arm-64bit-Mach-O arm cv2 5.1.0"
+}

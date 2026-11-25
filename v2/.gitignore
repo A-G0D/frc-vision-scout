@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# v1 got this wrong and left 7.5 GB un-ignored. This list is exhaustive on purpose.
+# Rule of thumb: anything REGENERABLE (footage, frames, weights, renders) is ignored.
+# Only source, configs, and small ground-truth JSON are tracked.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Footage / media (any depth)
+*.mp4
+*.mkv
+*.webm
+*.part
+*.ts
+
+# Datasets, frames, renders, annotation dumps (any depth)
+data/
+datasets/
+frames/
+clips/
+**/*_annot/
+**/*_annot*/
+renders/
+shot_windows/
+track_verify/
+
+# Model weights / exports (keep these in cloud storage or releases, not git)
+weights/
+runs/
+*.pt
+*.onnx
+*.engine
+*_openvino_model/
+*.bin
+*.xml          # OpenVINO graph — regenerable from training
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Secrets — NEVER commit. Tokens live in env / Modal secrets.
+.env
+*.key
+secrets.yaml
+
+# Scratch
+scratch_*.py
+*_scratch.*
+.DS_Store

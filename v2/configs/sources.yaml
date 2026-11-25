@@ -1,0 +1,36 @@
+# Footage manifest — distinct MATCHES (not encodings), each entirely in one split.
+# The test match is held out from all training and only touched by the release gate.
+# All 1080p60 HLS windows from the NE Waterbury 2026 VOD (ngvsHrmoW8U); windows estimated
+# as [results_t - 260s, results_t - 20s] to capture the ~4-min match before its results screen.
+
+url_vod: "https://www.youtube.com/watch?v=ngvsHrmoW8U"
+
+matches:
+  - name: ubr4m11      # Upper Bracket R4 M11 (the v1 showcase playoff match)
+    out:   data/footage/match_1080.mp4
+    split: train
+  - name: qual50
+    start: "0:30:38"
+    end:   "0:34:38"
+    out:   data/footage/qual50.mp4
+    split: train
+  - name: qual59       # red 613 — a high-scoring match, dense ball action
+    start: "2:15:43"
+    end:   "2:19:43"
+    out:   data/footage/qual59.mp4
+    split: train
+  - name: ubr1m1       # playoff, different alliances/cameras-of-record
+    start: "5:03:53"
+    end:   "5:07:53"
+    out:   data/footage/ubr1m1.mp4
+    split: train
+  - name: qual56       # already downloaded
+    start: "1:36:40"
+    end:   "1:40:40"
+    out:   data/footage/qual56.mp4
+    split: val
+  - name: final1       # HELD OUT — never trained on; the honest test match
+    start: "8:13:00"
+    end:   "8:17:00"
+    out:   data/footage/final1.mp4
+    split: test

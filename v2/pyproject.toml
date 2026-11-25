@@ -1,0 +1,59 @@
+[project]
+name = "frcscout"
+version = "2.0.0"
+description = "FRC REBUILT (2026) vision scout — CUDA-trained, CPU/NPU/iGPU-deployed, 60fps full tracking."
+requires-python = ">=3.10"
+
+# Runtime deps for the DEPLOY engine (the laptop — no CUDA, no torch at inference).
+# Inference is OpenVINO-only; torch/ultralytics are TRAIN-time, kept in [train].
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.9",          # NOTE: real build, not headless — engine needs imshow on dev
+    "openvino>=2024.4",
+    "pyyaml>=6.0",
+    "pupil-apriltags>=1.0.4",      # tag detection for the geometry layer
+    "scipy>=1.11",                 # ballistics least-squares, Hungarian assignment
+]
+
+[project.optional-dependencies]
+# TRAIN-time only — installed in the Modal GPU image, NOT on the laptop.
+train = [
+    "torch>=2.3",
+    "ultralytics>=8.3",
+    "sahi>=0.11.20",
+    "nncf>=2.12",                  # INT8 PTQ + QAT
+    "supervision>=0.22",
+]
+# Orchestration — what Claude uses to drive cloud jobs from Bash (no browser).
+ops = [
+    "modal>=0.64",                 # scriptable cloud GPU; replaces Colab/Kaggle browser cells
+    "yt-dlp>=2024.8",
+    "requests>=2.32",
+    "huggingface-hub>=0.24",       # optional weight/dataset hosting
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# src/ for the frcscout package; "." so the live/calib/publish production packages
+# import in tests without per-file sys.path hacks.
+pythonpath = ["src", "."]
+markers = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

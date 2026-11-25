@@ -1,0 +1,24 @@
+# Robot student (YOLO11n @ 512). 6 large objects — keep it tiny so it runs every
+# frame on the NPU. Alliance (red/blue) comes from a bumper-color head, not a
+# separate class, so the detector stays single-class and cheap.
+base_model: yolo11n.pt
+classes: {0: robot}
+imgsz: 512
+epochs: 100
+batch: 32
+patience: 40
+
+aug:
+  mosaic: 1.0
+  close_mosaic: 15
+  hsv_v: 0.4
+  scale: 0.4
+  fliplr: 0.5
+
+bumper_color:
+  enabled: true              # post-hoc red/blue classification on the detected box
+  method: hsv_vote           # masks reuse frame_classify HSV gates; majority vote
+
+deploy_imgsz: 512
+int8: true
+calibration_min_images: 300

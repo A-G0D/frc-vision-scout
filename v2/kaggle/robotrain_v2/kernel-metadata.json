@@ -1,0 +1,11 @@
+{
+  "id": "abhaygodavarthy/frc-robotrain-v2",
+  "title": "frc-robotrain-v2",
+  "code_file": "robotrain_v2.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["nithilanr/2024-frc-notedetection-dataset"]
+}

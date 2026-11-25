@@ -1,0 +1,12 @@
+{
+  "id": "abhaygodavarthy/frc-track",
+  "title": "frc-track",
+  "code_file": "track.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["abhaygodavarthy/frc-democlip"],
+  "kernel_sources": ["abhaygodavarthy/frc-repack", "abhaygodavarthy/frc-roborepack"]
+}

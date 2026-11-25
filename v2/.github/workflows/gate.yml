@@ -1,0 +1,31 @@
+# CPU-only CI: lint, unit tests, and the structural/eval gates. Runs on GitHub's free
+# runners (no GPU — training happens on Modal, the fps gate happens on the laptop).
+# Claude can drive this end to end via the GitHub MCP (push -> watch run -> read logs).
+name: gate
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install (deploy + dev deps; no torch)
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests
+      - name: Unit tests (scheduler, structural validity)
+        run: pytest -q
+      # The eval gate needs the held-out labels + bench report as artifacts; when present
+      # it enforces thresholds and fails the build on any regression.
+      - name: Release gate (if artifacts present)
+        run: |
+          if [ -f configs/eval.yaml ] && [ -d data/labels/test ]; then
+            python -m frcscout.eval.gates --config configs/eval.yaml --enforce
+          else
+            echo "no held-out artifacts in CI — gate skipped (run locally with real data)"
+          fi

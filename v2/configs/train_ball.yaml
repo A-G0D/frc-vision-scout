@@ -1,0 +1,27 @@
+# Ball student (YOLO11s @ high-res). Small-object recall is the whole game here.
+base_model: yolo11s.pt
+classes: {0: ball}
+imgsz: 960                   # 5px balls at 720p become resolvable; 1080p source preferred
+epochs: 150
+batch: 16
+patience: 50
+
+# Augmentation tuned to the actual failure modes (airborne blur, perspective, venue light)
+aug:
+  mosaic: 1.0
+  close_mosaic: 20
+  copy_paste: 0.3            # synthesize dense ball piles
+  hsv_h: 0.015
+  hsv_s: 0.5
+  hsv_v: 0.5
+  degrees: 5
+  translate: 0.1
+  scale: 0.5
+  fliplr: 0.5
+  erasing: 0.3
+  # motion-blur added via a custom albumentations transform in train_student.py
+
+deploy_imgsz: 960            # MUST match detectors.ball_inventory.imgsz in deploy.yaml
+int8: true
+qat_if_recall_drop_pct: 5    # if PTQ INT8 drops small-ball recall >5%, switch to QAT
+calibration_min_images: 300  # diverse REAL frames, not near-duplicates

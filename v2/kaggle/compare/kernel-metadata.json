@@ -1,0 +1,12 @@
+{
+  "id": "abhaygodavarthy/frc-compare",
+  "title": "frc-compare",
+  "code_file": "compare.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["abhaygodavarthy/frc-democlip"],
+  "kernel_sources": ["abhaygodavarthy/frc-repack"]
+}

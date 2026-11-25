@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FRC REBUILT (2026) field model — the basis for the geometry ("geolocator") layer.
+#
+# Coordinates are in METERS in the FRC field coordinate frame (origin at one corner,
+# +x toward the opposing alliance, +y left, +z up), matching the official field
+# drawings. AprilTags use the season's 36h11 family.
+#
+# !! PLACEHOLDERS !! The exact tag XYZ + HUB/TOWER geometry come from the official
+# REBUILT field drawings / AprilTag layout. `scripts/fetch_field.py` pulls the
+# published layout; until then these are structurally-correct placeholders so the
+# geometry code runs end to end. DO NOT trust the numbers for real metric output.
+# ─────────────────────────────────────────────────────────────────────────────
+
+units: meters
+tag_family: tag36h11
+tag_size_m: 0.1651            # 6.5 in — standard FRC tag edge
+
+field:
+  length_m: 16.46             # ~54 ft (placeholder; confirm from drawings)
+  width_m: 8.23               # ~27 ft (placeholder)
+
+# AprilTag id -> [x, y, z] center + [yaw, pitch, roll] deg in field frame.
+# Used for PnP camera-pose recovery. Replace with the official map.
+apriltags:
+  1:  {xyz: [0.00, 1.00, 0.46], rpy: [0, 0, 180]}
+  2:  {xyz: [0.00, 7.23, 0.46], rpy: [0, 0, 180]}
+  7:  {xyz: [16.46, 1.00, 0.46], rpy: [0, 0, 0]}
+  8:  {xyz: [16.46, 7.23, 0.46], rpy: [0, 0, 0]}
+  # ... full map populated by scripts/fetch_field.py
+
+# Scoring/structure regions as field-frame volumes (image-independent — survives
+# any camera pan/zoom because the test happens in field coords, not pixels).
+hubs:
+  blue: {center_m: [3.20, 4.10], radius_m: 0.80, rim_height_m: 2.10}
+  red:  {center_m: [13.26, 4.10], radius_m: 0.80, rim_height_m: 2.10}
+
+# Mode-A HUB localization: approximate HUB image polygons for the STATIC broadcast
+# camera, as [x, y] vertices in FRACTIONS of (W, H) — resolution-independent, same
+# convention as the overlay OCR ROIs. Used by refine/hub_regions.py when no valid
+# field homography is available (Mode B, the field-coords circle test, is preferred
+# when a pose exists). !! PLACEHOLDERS !! trace these on a real broadcast frame; the
+# fractions below are a structurally-correct guess (two HUBs left/right of centre).
+hub_image_regions:
+  blue:
+    - [0.34, 0.40]
+    - [0.46, 0.40]
+    - [0.48, 0.66]
+    - [0.32, 0.66]
+  red:
+    - [0.54, 0.40]
+    - [0.66, 0.40]
+    - [0.68, 0.66]
+    - [0.52, 0.66]
+
+towers:
+  blue: {center_m: [1.50, 4.10], climb_height_m: 1.20}
+  red:  {center_m: [14.96, 4.10], climb_height_m: 1.20}
+
+# Ground plane (z=0) is the carpet; homography maps image<->this plane exactly.
+ground_plane_z_m: 0.0
+fuel_diameter_m: 0.13          # ~5in foam ball — used by ballistics scale prior

@@ -1,0 +1,13 @@
+{
+  "id": "abhaygodavarthy/frc-train",
+  "title": "frc-train",
+  "code_file": "frc_train_kaggle.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "abhaygodavarthy/frc-footage"
+  ]
+}

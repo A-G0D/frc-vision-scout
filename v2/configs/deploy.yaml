@@ -1,0 +1,157 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPLOY config — the live 60fps engine on the Intel Core Ultra 7 255U.
+# Every cadence/device choice here is the answer to "how do we hit 60fps on CPU":
+# heavy detectors run async on NPU/iGPU at LOW cadence; cheap work runs at 60Hz on CPU.
+# ─────────────────────────────────────────────────────────────────────────────
+
+target_fps: 60
+frame_budget_ms: 16.6          # 1000/60; the hot path (CPU) must fit under this
+field_config: configs/field_2026_rebuilt.yaml
+
+sync_performance:
+  enabled: true
+  net_every: 6
+  blob_every: 12
+  pile_every: 12
+  ocr_every: 180
+  hud_ocr: false
+  warmup_net: true
+
+# Ball<->robot<->HUB interaction state machine (intaking / held / shooting + bin-score
+# CANDIDATES). NOTE the "collector bin" the user described is the HUB — there are TWO static
+# alliance HUBs (manual sec 5.4), not one central bin. The overlay FUEL counter stays the
+# AUTHORITATIVE score; CV bin-scores are candidates only (the dense ball field makes absolute
+# per-ball CV counts untrustworthy).
+enable_bin_scorer: true
+# Per-robot SHOOTING is unreliable in the dense ball field (every box-exit looks like a shot
+# -> all 6 robots falsely "SHOOTING"). Gate it on a CORRELATED AIRBORNE ball (is_flight) + a
+# sustained prior hold, so SHOOTING only fires on a real launch. The airborne flight SHOT
+# markers remain the reliable "a shot happened" signal; the overlay FUEL counter is the
+# authoritative score (CV bin-scores stay candidates).
+require_flight_for_shot: true
+min_held_s_for_shot: 0.3
+# Per-robot INTAKING was the worst over-fire in the dense ball field: the image-space bbox/
+# cone bin signal fired for nearly every robot every frame (in a 100+ ball pile there is
+# always a ball within radius in the heading, and ball-id churn + bbox jitter keep faking
+# cone->box "pickups"). Mirror the SHOOTING fix: trust ONLY the field-meter consumption
+# authority (a ball that CONVERGES then VANISHES into the robot's size-scaled radius, with a
+# dedup window) for INTAKING; do NOT let the noisy bbox bin signal light the phase here. The
+# BinScorer still supplies the occlusion-robust HELD cue + bin-score candidates.
+intake_from_bin: false
+# HOLDING had the SAME dense-field failure: a robot parked OVER a ball pile has loose litter
+# overlapping its bbox, so the image-space HELD cue read HOLDING for ~83% of robot-frames
+# (the over-fire moved from INTAKING to HOLDING). Require TRUE tracked possession instead:
+# HOLDING fires only when the field-meter authority inferred a held ball (held_count>0 from a
+# confirmed converge->vanish intake). A robot driving through litter with no tracked intake
+# reads TRAVERSING. The bbox HELD cue stays an internal candidate (bin tallies), off the phase.
+hold_from_bin: false
+# default-on in the code, but pinned here for clarity: confirmed-consumption gating + the
+# parked-in-pile motion gate for the bin signal (matters if intake_from_bin is ever re-enabled).
+require_consumption_for_intake: true
+intake_require_robot_motion: true
+
+decode:
+  backend: qsv                 # Quick Sync hardware decode; falls back to cpu if unavailable
+  ring_buffer: 8               # frames held for the async consumers
+
+# ── Detector layers: each runs at its own cadence on its own engine ───────────
+detectors:
+  robot:
+    # robot2/robot single-class nets detect ~0 robots on broadcast footage (recall ceiling,
+    # worsened by the 3x downscale to 640). The YOLO11s ball model @960 is MULTI-class and
+    # its `robot` class (id 1) detects 2-7 robots/frame here — far better. Reuse it for
+    # robots, filtered to class 1. The 6-robot structural prior coasts any frame-level miss.
+    model: weights/ball_openvino_model        # YOLO11s @ 960 INT8, classes {0:ball, 1:robot}
+    device: intel:npu
+    imgsz: 960                                # MUST match the OpenVINO static export shape
+    conf: 0.12                                # 0.10 spawned a phantom 7th robot (n_robots=7); 0.12 = 5 real, no phantom. The retrain is the real path to a clean 6.
+    class_id: 1                               # keep only the `robot` class
+    cadence_hz: 10                            # 960 is heavy; async + ByteTrack interpolation covers it
+    classes: [robot]
+
+  ball_inventory:
+    model: weights/ball_openvino_model       # YOLO11s @ 960 INT8
+    device: intel:gpu                         # Arc iGPU; bursty, off the critical path
+    imgsz: 960
+    conf: 0.15
+    cadence_hz: 5                             # static carpet litter changes slowly
+    tiled: true                               # SAHI-style tiles only over the field trapezoid
+    tile: {size: 512, overlap: 0.2}
+
+  ball_flight:
+    backend: classical                        # bg-subtraction + sparse optical flow on CPU
+    device: cpu
+    cadence_hz: 60                            # the ONLY ball signal that needs 60Hz
+    min_speed_px: 6.0                         # field-relative gating done after homography
+    # Broadcast (moving-camera) robustness — gate WITHOUT a homography so a pan can't
+    # spawn hundreds of bogus flight balls. Harmless on a static field cam (field_mask
+    # gates first there). See FlightDetector.
+    min_circularity: 0.55                     # round, ball-like blobs; reject pan streaks. 0.55
+                                              # (not 0.60) gives a fast, motion-BLURRED airborne
+                                              # ball — which smears slightly oval — recall room;
+                                              # the fuel-color + arc + tracker keep precision.
+    max_candidates: 25                        # hard per-frame cap (most ball-like kept)
+    min_radius_px_blob: 2.5                   # floor out sub-ball motion speckle (glints on
+                                              # moving edges); real airborne fuel is r~5-14 px.
+    max_area: 900                             # px area cap: a thrown fuel ball is small; a robot/
+                                              # shadow/big smear is rejected (was 600; airborne
+                                              # balls near the camera reach ~14 px r -> ~620 px).
+    roi_frac: [0.04, 0.13, 0.96, 0.93]        # image ROI used only when no field pose
+    # ----- Fuel-color (vivid yellow) gate — the key broadcast-FP killer ----------------- #
+    # Calibrated on REAL qual59 airborne/moving-ball pixels (H~15-21, S~166-236, V~114-148):
+    # widen the low hue edge and drop the value floor so a fast, motion-blurred/shadowed
+    # airborne ball is still caught; keep sat_min high so moving PEOPLE/banners (pale, S~77)
+    # are rejected. Matches the FlightDetector module defaults; pinned here for the deploy.
+    fuel_color_gate: true
+    fuel_h_lo: 16
+    fuel_h_hi: 40
+    fuel_sat_min: 110
+    fuel_val_min: 95
+    fuel_dilate: 2
+    # SHOT/arc restriction: only treat motion in the band ABOVE the carpet (main pane) as a
+    # flight ball, so disturbed PILE/ground balls aren't counted as shots, and the crowd
+    # (stands, frac y<~0.30) and the lower composite pane (frac y>~0.62) are excluded. The
+    # bottom edge (0.43) sits just ABOVE the dense carpet ball-litter band (measured ~y
+    # 0.435-0.46 in teleop on qual59), which otherwise floods the flight list with rolling
+    # GROUND balls; a real shot is still caught on the ascending part of its arc (a validated
+    # warmup throw at the red goal was tracked rising from y~0.43 to ~0.38). fuel_color_gate
+    # keeps only moving YELLOW blobs; the Kalman tracker's sustained-speed gate is the final
+    # shot/ground discriminator.
+    arc_region: [0.10, 0.18, 0.90, 0.43]
+
+  overlay:
+    backend: ocr                              # match id / teams / score / fuel / phase / timer
+    device: cpu
+    cadence_hz: 2                             # authoritative count comes from here, not CV
+
+# ── Tracking (all CPU, every frame; interpolates between detector refreshes) ──
+tracking:
+  robot: {tracker: bytetrack, max_age_frames: 30, iou_match: 0.4}
+  ball_flight:
+    tracker: kalman
+    max_coast_frames: 6
+    vel_alpha: 0.8
+    # Broadcast shots are far + small: the airborne arc moves only ~2-5 px/frame (not the
+    # 6px default, which was tuned for a close field cam), and the Kalman velocity ramps from
+    # zero — so the default gate could NEVER fire and is_flight stayed False on perfect arcs.
+    # The detector's arc_region + fuel-color already guarantee these are airborne candidates;
+    # this speed gate is only the secondary motion confirmation. Stationary litter (~0 px/fr)
+    # still never qualifies.
+    min_speed_px: 2.0           # airborne balls cross the arc band fast (>10 px/fr) so this
+    min_travel_px: 10.0         # confirms the moving ones, while a NET ball merely resting
+    flight_min_frames: 2        # above the carpet (~0 px/fr) stays below the gate (not a shot)
+    # NOTE: crowd "SHOT" FPs near the HUBs are NOT fixable by tuning these thresholds — tried
+    # flight_min_frames 2->4 (no effect) because is_flight LATCHES + the track COASTS, and the
+    # arc_region overlaps the stands. Real fix (scoped, not guessed): SHOT ground-truth labels +
+    # (a) field-mask the stands out of arc_region, (b) don't latch is_flight outside the field poly.
+
+# 6-robot structural prior (the persistent-identity tracker). Tuned for 1920x1080
+# broadcast: robots never leave the field, so protect an id through long occlusions.
+sixbot:
+  coast_grace_s: 5.0       # never evict a track coasting < 5s (1s default -> id churn)
+  coast_widen_px: 10.0     # widen a coasting track's gate so it re-binds the SAME id
+  gate_px: 150             # base association gate (px)
+
+render:
+  enabled: false               # headless on contest day; set true for a debug window
+  draw: [robots, ball_flight, ball_inventory, field_grid, events]
